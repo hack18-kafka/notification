@@ -10,7 +10,7 @@ const client = new kafka.KafkaClient({kafkaHost: config.kafkaHost});
 
 var consumerOptions = {
   host: config.kafkaHost,
-  groupId: 'ExampleTestGroup',
+  groupId: 'notificationGroup',
   sessionTimeout: 15000,
   protocol: ['roundrobin'],
   fromOffset: 'earliest' // equivalent of auto.offset.reset valid values are 'none', 'latest', 'earliest'
@@ -51,19 +51,7 @@ const createNotificationMessage = (topic, value) => {
     let notificationMessage = null;
 
     if (topic.toUpperCase() === 'FLIGHT_DELAY') {
-        let flightIssue = value.flightIssue;
-
-        notificationMessage = `Your flight ${flightIssue.flightNumber} to ${flightIssue.flightDestination} on ${flightIssue.flightDate} is `;
-       
-        if (flightIssue.flightStatus.toUpperCase() === 'DELAYED') {
-            notificationMessage = notificationMessage + `delayed for ${flightIssue.flightDelay} hours.`;
-        } else {
-            notificationMessage = notificationMessage + `cancelled.`;
-        }
-
-        if (flightIssue.flightCompanyHelpLink != null) {
-            notificationMessage = notificationMessage +  ` You can get help at this site ${flightIssue.flightCompanyHelpLink}`;    
-        }
+        notificationMessage = createFlightIssueMessage(value.flightIssue);
     } else if (topic.toUpperCase() === 'MYAXA-NOTIFICATION') {
         notificationMessage = value.message;
     } else {
@@ -73,13 +61,33 @@ const createNotificationMessage = (topic, value) => {
     return notificationMessage;
 }
 
+const createFlightIssueMessage = (flightIssue) => {
+    let notificationMessage = `Your flight ${flightIssue.flightNumber} to ${flightIssue.flightDestination} on ${flightIssue.flightDate} is `;
+    
+    if (flightIssue.flightStatus.toUpperCase() === 'DELAYED') {
+        notificationMessage = notificationMessage + `delayed for ${flightIssue.flightDelay} hours.`;
+    } else {
+        notificationMessage = notificationMessage + `cancelled.`;
+    }
+
+    if (flightIssue.flightCompanyHelpLink != null) {
+        notificationMessage = notificationMessage +  ` You can get help at this site ${flightIssue.flightCompanyHelpLink}`;    
+    }
+
+    return notificationMessage;
+}
 consumerGroup.on("error", (error) => console.error('received error' + error));
 
 const sendNotification = async (notification) => {
     //HACK to accept only a real test user
-    if (notification.userId.toUpperCase() === config.testuser.toUpperCase() && config.notificationStatus) {
-        const response = await pushClient.sendPushNotification(notification.userId, notification.message);
-        console.log('Response from sendPushNotifiction: ' + response);
+    if (notification.userId.toUpperCase() === config.testuser.toUpperCase()) {
+        //Hack to check how many notifications would have been sent
+        if (config.notificationStatus) {
+            const response = await pushClient.sendPushNotification(notification.userId, notification.message);
+        } else {
+            console.log('Notification was not send due config: ' + notification.message);
+        }
+
     } else {
         console.log('Received notification, but did not send it: ' + JSON.stringify(notification));
     }
