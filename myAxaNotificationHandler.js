@@ -23,22 +23,35 @@ var consumerGroup = new ConsumerGroup(Object.assign({id: 'consumer1'}, consumerO
 consumerGroup.on("message", (message) => {
     console.log('Received message: ' + JSON.stringify(message));
     
-    let value = JSON.parse(message.value);
+    let value;
     
-    let notification = {
-        'userId': value.userId,
-        'message': value.message
+    try {
+        value = JSON.parse(message.value);
+    } catch (error) {
+        console.log('Received invalid JSON Data: ' + message.value);
     }
-
-    //HACK to accept only a real test user
-    if (notification.userId.toUpperCase() === config.testuser.toUpperCase()) {
-        let response = pushClient.sendPushNotification(notification.userId, notification.message);
-    } else {
-        console.log('Received notification, but did not send it: ' + JSON.stringify(notification));
+    
+    if (value) {
+        let notification = {
+            'userId': value.userId,
+            'message': value.message
+        }
+    
+        sendNotification(notification);
     }
 });
  
 consumerGroup.on("error", (error) => console.error('received error' + error));
+
+const sendNotification = async (notification) => {
+    //HACK to accept only a real test user
+    if (notification.userId.toUpperCase() === config.testuser.toUpperCase() && config.notificationStatus) {
+        const response = await pushClient.sendPushNotification(notification.userId, notification.message);
+        console.log('Response from sendPushNotifiction: ' + response);
+    } else {
+        console.log('Received notification, but did not send it: ' + JSON.stringify(notification));
+    }
+};
 
 const shutdown = () => {
     consumerGroup.close(true, (err) => {
