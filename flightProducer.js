@@ -6,17 +6,26 @@ let producer = new kafka.Producer(client);
 
 let message = {
     userId: config.testuser,
-    message: 'Test message'
+    flightIssue: {
+        flightNumber: 'LX123',
+        flightCompany: 'Swiss',
+        flightDestination: 'Barcelona',
+        flightDate: '26.09.2018',
+        flightStatus: 'cancelled',
+        flightDelay: 2,
+        flightCompanyHelpLink: 'https://axa.ch'
+    }
 };
 
 producer.on('ready', () => {
     console.log('producer is ready');
-    producer.send([{ topic: 'myaxa-notification', messages: JSON.stringify(message)}], (err, data) => {
+    producer.send([{ topic: 'flight_delay', messages: JSON.stringify(message)}], (err, data) => {
         if (err) {
             console.log(err);
         } else {
             console.log(`send ${message} messages`);
         }
+        process.exit();
     });
 });
 

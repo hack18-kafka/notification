@@ -55,8 +55,9 @@ const sendPushNotification = async (user, message) => {
 
     const response =  await sendMessage(user, message, authToken.data);
 
-    console.log(response);
     return response;
 };
+
+
 
 module.exports = {getOauthToken, sendMessage, sendPushNotification};

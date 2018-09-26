@@ -16,7 +16,7 @@ var consumerOptions = {
   fromOffset: 'earliest' // equivalent of auto.offset.reset valid values are 'none', 'latest', 'earliest'
 };
 
-var topics = [config.kafkaTopics];
+var topics = config.kafkaTopics;
 
 var consumerGroup = new ConsumerGroup(Object.assign({id: 'consumer1'}, consumerOptions), topics);
  
@@ -32,15 +32,47 @@ consumerGroup.on("message", (message) => {
     }
     
     if (value) {
-        let notification = {
-            'userId': value.userId,
-            'message': value.message
+        let notificationMessage = createNotificationMessage(message.topic, value);
+
+        if (notificationMessage == null) {
+            console.log(`Unable to construct notification message for topic ${message.topic}`);
+        } else {
+            let notification = {
+                'userId': value.userId,
+                'message': notificationMessage
+            }
+        
+            sendNotification(notification);
         }
-    
-        sendNotification(notification);
     }
 });
- 
+
+const createNotificationMessage = (topic, value) => {
+    let notificationMessage = null;
+
+    if (topic.toUpperCase() === 'FLIGHT_DELAY') {
+        let flightIssue = value.flightIssue;
+
+        notificationMessage = `Your flight ${flightIssue.flightNumber} to ${flightIssue.flightDestination} on ${flightIssue.flightDate} is `;
+       
+        if (flightIssue.flightStatus.toUpperCase() === 'DELAYED') {
+            notificationMessage = notificationMessage + `delayed for ${flightIssue.flightDelay} hours.`;
+        } else {
+            notificationMessage = notificationMessage + `cancelled.`;
+        }
+
+        if (flightIssue.flightCompanyHelpLink != null) {
+            notificationMessage = notificationMessage +  ` You can get help at this site ${flightIssue.flightCompanyHelpLink}`;    
+        }
+    } else if (topic.toUpperCase() === 'MYAXA-NOTIFICATION') {
+        notificationMessage = value.message;
+    } else {
+        console.log ('undefined topic name: ' + topic);
+    }
+
+    return notificationMessage;
+}
+
 consumerGroup.on("error", (error) => console.error('received error' + error));
 
 const sendNotification = async (notification) => {
