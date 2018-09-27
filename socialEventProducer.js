@@ -6,19 +6,16 @@ let producer = new kafka.Producer(client);
 
 let message = {
     USERID: config.testuser,
-    FLIGHTID: 'LX1111',
-    flightCompany: 'Swiss',
-    FLIGHTDEPARTURE: 'Zurich',
-    FLIGHTDESTINATION: 'Munich',
-    FLIGHTDATE: '2018-09-27T12:23:01.123Z',
-    FLIGHTSTATUS: 'delayed',
-    FLIGHTDELAY: 2,
-    FLIGHTCOMPANYHELPLINK: 'https://axa.ch'
+    CITY: 'Munich',
+    EVENTTYPE: 'strike',
+    EVENTMOOD: -1,
+    EVENTBEGIN: '2018-09-27T12:23:01.123Z',
+    EVENTEND: '2018-09-28T12:23:01.123Z'
 };
 
 producer.on('ready', () => {
     console.log('producer is ready');
-    producer.send([{ topic: config.flight_topic, messages: JSON.stringify(message)}], (err, data) => {
+    producer.send([{ topic: config.social_topic, messages: JSON.stringify(message)}], (err, data) => {
         if (err) {
             console.log(err);
         } else {

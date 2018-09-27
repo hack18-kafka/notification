@@ -1,5 +1,6 @@
 const kafka = require('kafka-node');
 const ConsumerGroup = require('kafka-node').ConsumerGroup;
+const moment = require('moment');
 
 const pushClient = require('./pushClient');
 const config = require('./config');
@@ -26,7 +27,7 @@ consumerGroup.on("message", (message) => {
     let value;
     
     try {
-        value = JSON.parse(message.value);
+        value = toLowerKey(JSON.parse(message.value));
     } catch (error) {
         console.log('Received invalid JSON Data: ' + message.value);
     }
@@ -38,7 +39,7 @@ consumerGroup.on("message", (message) => {
             console.log(`Unable to construct notification message for topic ${message.topic}`);
         } else {
             let notification = {
-                'userId': value.userId,
+                'userId': value.userid,
                 'message': notificationMessage
             }
         
@@ -50,10 +51,12 @@ consumerGroup.on("message", (message) => {
 const createNotificationMessage = (topic, value) => {
     let notificationMessage = null;
 
-    if (topic.toUpperCase() === 'FLIGHT_DELAY') {
-        notificationMessage = createFlightIssueMessage(value.flightIssue);
-    } else if (topic.toUpperCase() === 'MYAXA-NOTIFICATION') {
-        notificationMessage = value.message;
+    if (topic.toLowerCase() === config.flight_topic) {
+        notificationMessage = createFlightIssueMessage(value);
+    } else if (topic.toLowerCase() === config.social_topic) {
+        notificationMessage = createSocialEventMessage(value);
+    } else if (topic.toLowerCase() === config.weather_topic) {
+        notificationMessage = createWeatherEventMessage(value);
     } else {
         console.log ('undefined topic name: ' + topic);
     }
@@ -61,29 +64,57 @@ const createNotificationMessage = (topic, value) => {
     return notificationMessage;
 }
 
-const createFlightIssueMessage = (flightIssue) => {
-    let notificationMessage = `Your flight ${flightIssue.flightNumber} to ${flightIssue.flightDestination} on ${flightIssue.flightDate} is `;
+const createFlightIssueMessage = (value) => {
+    let notificationMessage = `Your flight ${value.flightid} to ${value.flightdestination} on ${formatDate(value.flightdate)} is `;
     
-    if (flightIssue.flightStatus.toUpperCase() === 'DELAYED') {
-        notificationMessage = notificationMessage + `delayed for ${flightIssue.flightDelay} hours.`;
+    if (value.flightstatus.toUpperCase() === 'DELAYED') {
+        notificationMessage = notificationMessage + `delayed for ${value.flightdelay} hours.`;
     } else {
         notificationMessage = notificationMessage + `cancelled.`;
     }
 
-    if (flightIssue.flightCompanyHelpLink != null) {
-        notificationMessage = notificationMessage +  ` You can get help at this site ${flightIssue.flightCompanyHelpLink}`;    
+    if (value.flightcompanyhelplink != null) {
+        notificationMessage = notificationMessage +  ` You can get help at this site ${value.flightcompanyhelplink}`;    
     }
 
     return notificationMessage;
 }
+
+const createSocialEventMessage = (value) => {
+    let message = ((value.eventmood > 0 ) ? 'Information: ' : 'Attention: ') + `In ${value.city} will be a ${value.eventtype} `;
+    
+    if (value.eventend == null) {
+        message = message + `at ${formatDate(value.eventbegin)}`;
+    } else {
+        message = message + `from ${formatDate(value.eventbegin)} to ${formatDate(value.eventend)}`;
+    }
+    return message;
+};
+
+const createWeatherEventMessage = (value) => {
+    let message = `Attention - ${value.weathertype} warning for ${value.city} `;
+    
+    if (value.weatherend == null) {
+        message = message + `at ${formatDate(value.weatherbegin)}: `;
+    } else {
+        message = message + `from ${formatDate(value.weatherbegin)} to ${formatDate(value.weatherend)}: `;
+    }
+    message = message + value.weathermessage;
+    return message;
+}
+
+
 consumerGroup.on("error", (error) => console.error('received error' + error));
 
-const sendNotification = async (notification) => {
+const sendNotification = (notification) => {
     //HACK to accept only a real test user
     if (notification.userId.toUpperCase() === config.testuser.toUpperCase()) {
         //Hack to check how many notifications would have been sent
         if (config.notificationStatus) {
-            const response = await pushClient.sendPushNotification(notification.userId, notification.message);
+            pushClient.sendPushNotification(notification.userId, notification.message).then((response) => {
+                //insertNotification(response.data[0].id, 0, notification.userId, response.data[0].status);
+            }).catch(e => console.log(e.message));
+            
         } else {
             console.log('Notification was not send due config: ' + notification.message);
         }
@@ -92,6 +123,15 @@ const sendNotification = async (notification) => {
         console.log('Received notification, but did not send it: ' + JSON.stringify(notification));
     }
 };
+
+const toLowerKey = (o) => {
+    return Object.keys(o).reduce((c, k) => (c[k.toLowerCase()] = o[k], c), {});
+}
+
+const formatDate = (date) => {
+    return moment(date).format('DD.MM.YYYY');
+}
+
 
 const shutdown = () => {
     consumerGroup.close(true, (err) => {
