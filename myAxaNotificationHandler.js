@@ -51,11 +51,11 @@ consumerGroup.on("message", (message) => {
 const createNotificationMessage = (topic, value) => {
     let notificationMessage = null;
 
-    if (topic.toLowerCase() === config.flight_topic) {
+    if (topic.toUpperCase() === config.flight_topic) {
         notificationMessage = createFlightIssueMessage(value);
-    } else if (topic.toLowerCase() === config.social_topic) {
+    } else if (topic.toUpperCase() === config.social_topic) {
         notificationMessage = createSocialEventMessage(value);
-    } else if (topic.toLowerCase() === config.weather_topic) {
+    } else if (topic.toUpperCase() === config.weather_topic) {
         notificationMessage = createWeatherEventMessage(value);
     } else {
         console.log ('undefined topic name: ' + topic);
@@ -68,7 +68,7 @@ const createFlightIssueMessage = (value) => {
     let notificationMessage = `Your flight ${value.flightid} to ${value.flightdestination} on ${formatDate(value.flightdate)} is `;
     
     if (value.flightstatus.toUpperCase() === 'DELAYED') {
-        notificationMessage = notificationMessage + `delayed for ${value.flightdelay} hours.`;
+        notificationMessage = notificationMessage + `delayed for ${value.flightdelay} minutes.`;
     } else {
         notificationMessage = notificationMessage + `cancelled.`;
     }
